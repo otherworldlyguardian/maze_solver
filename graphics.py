@@ -40,34 +40,31 @@ class Line():
         canvas.create_line(self.point_one.x, self.point_one.y, self.point_two.x, self.point_two.y, fill=fill_color, width=2)
 
 class Cell():
-    def __init__(self, win):
-        self._x1 = None
-        self._x2 = None
-        self._y1 = None
-        self._y2 = None
+    def __init__(self, x1, y1, x2, y2, win=None):
+        self._left_wall = Line(Point(x1, y1), Point(x1, y2))
+        self._top_wall = Line(Point(x1, y1), Point(x2, y1))
+        self._right_wall = Line(Point(x2, y1), Point(x2, y2))
+        self._bottom_wall = Line(Point(x1, y2), Point(x2, y2))
         self.has_left_wall = True
         self.has_right_wall = True
         self.has_top_wall = True
         self.has_bottom_wall = True
         self._win = win
 
-    def draw(self, x1, y1, x2, y2):
-        self._x1 = x1
-        self._x2 = x2
-        self._y1 = y1
-        self._y2 = y2
-        if self.has_left_wall:
-            line = Line(Point(x1, y1), Point(x1, y2))
-            self._win.draw_line(line)
-        if self.has_top_wall:
-            line = Line(Point(x1, y1), Point(x2, y1))
-            self._win.draw_line(line)
-        if self.has_right_wall:
-            line = Line(Point(x2, y1), Point(x2, y2))
-            self._win.draw_line(line)
-        if self.has_bottom_wall:
-            line = Line(Point(x1, y2), Point(x2, y2))
-            self._win.draw_line(line)
+    def draw(self):
+        if self._win is None:
+            return
+        sides = [
+            (self._left_wall, self.has_left_wall),
+            (self._top_wall, self.has_top_wall),
+            (self._right_wall, self.has_right_wall),
+            (self._bottom_wall, self.has_bottom_wall)
+            ]
+        for side in sides:
+            if side[1]:
+                self._win.draw_line(side[0])
+            else:
+                self._win.draw_line(side[0], "white")
 
     def draw_move(self, to_cell, undo=False):
         center = Point((self._x1 + self._x2) / 2, (self._y1 + self._y2) / 2)
@@ -79,7 +76,7 @@ class Cell():
             self._win.draw_line(line, "red")
 
 class Maze():
-    def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win):
+    def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win=None):
         self._x1 = x1
         self._y1 = y1
         self._num_rows = num_rows
@@ -89,24 +86,37 @@ class Maze():
         self._win = win
         self._cells = []
         self._create_cells()
+        self._break_entrance_and_exit()
 
     def _create_cells(self):
         for i in range(self._num_cols):
-            row_builder = [Cell(self._win) for j in range(self._num_rows)]
-            self._cells.append(row_builder)
-        for i in range(self._num_cols):
+            row_builder = []
             for j in range(self._num_rows):
-                self._draw_cell(i, j)
+                row_builder.append(self._create_cell(i, j))
+            self._cells.append(row_builder)
 
-
-    def _draw_cell(self, i, j):
+    def _create_cell(self, i, j):
+        if self._win is None:
+            return
         x1 = self._x1 + i * self._cell_size_x
         y1 = self._y1 + j * self._cell_size_y
         x2 = x1 + self._cell_size_x
         y2 = y1 + self._cell_size_y
-        self._cells[i][j].draw(x1, y1, x2, y2)
+        cell = Cell(x1, y1, x2, y2, self._win)
+        cell.draw()
         self._animate()
+        return cell
 
     def _animate(self):
+        if self._win is None:
+            return
         self._win.redraw()
         time.sleep(0.02)
+
+    def _break_entrance_and_exit(self):
+        entrance = self._cells[0][0]
+        exit = self._cells[self._num_cols - 1][self._num_rows - 1]
+        entrance.has_top_wall = False
+        entrance.draw()
+        exit.has_bottom_wall = False
+        exit.draw()
