@@ -38,7 +38,7 @@ class Line():
         self.point_two = p2
 
     def draw(self, canvas, fill_color):
-        canvas.create_line(self.point_one.x, self.point_one.y, self.point_two.x, self.point_two.y, fill=fill_color, width=2)
+        canvas.create_line(self.point_one.x, self.point_one.y, self.point_two.x, self.point_two.y, fill=fill_color, width=3)
 
 class Cell():
     def __init__(self, x1, y1, x2, y2, win, visited=False):
@@ -46,6 +46,7 @@ class Cell():
         self._top_wall = Line(Point(x1, y1), Point(x2, y1))
         self._right_wall = Line(Point(x2, y1), Point(x2, y2))
         self._bottom_wall = Line(Point(x1, y2), Point(x2, y2))
+        self._center = Point((x1 + x2) / 2, (y1 + y2) / 2)
         self.has_left_wall = True
         self.has_right_wall = True
         self.has_top_wall = True
@@ -66,14 +67,17 @@ class Cell():
             else:
                 self._win.draw_line(side[0], "white")
 
-    def draw_move(self, to_cell, undo=False):
-        center = Point((self._x1 + self._x2) / 2, (self._y1 + self._y2) / 2)
-        target = Point((to_cell._x1 + to_cell._x2) / 2, (to_cell._y1 + to_cell._y2) / 2)
-        line = Line(center, target)
+    def draw_move(self, to_cell, undo=False, colorful=False):
+        line = Line(self._center, to_cell._center)
         if undo:
             self._win.draw_line(line, "gray")
+        elif colorful:
+            colors = ["violet red", "DeepPink4", "blue4", "gold", "green4", "DarkOrange2", "cyan4", "SlateBlue4", "deep sky blue", "forest green"]
+            color = colors[random.randrange(len(colors))]
+            self._win.draw_line(line, color)
         else:
             self._win.draw_line(line, "red")
+            
 
 class Maze():
     def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win):
@@ -88,6 +92,7 @@ class Maze():
         self._create_cells()
         self._break_entrance_and_exit()
         self._break_walls_r(0, 0)
+        self._reset_cells_visited()
 
     def _create_cells(self):
         for i in range(self._num_cols):
@@ -141,7 +146,6 @@ class Maze():
             
             rand_direction = random.randrange(len(to_visit))
             new_i, new_j, direction = to_visit[rand_direction]
-            # print(to_visit[rand_direction])
             match direction:
                 case "up":
                     cell.has_top_wall = False
@@ -157,4 +161,43 @@ class Maze():
                     self._cells[i - 1][j].has_right_wall = False
             
             self._break_walls_r(new_i, new_j)
-                
+    
+    def _reset_cells_visited(self):
+        for col in self._cells:
+            for cell in col:
+                cell.visited = False
+
+    def solve(self, colorful=False):
+        return self._solve_r(0, 0, colorful)
+    
+    def _solve_r(self, i, j, colorful):
+        self._animate()
+        cell = self._cells[i][j]
+        cell.visited = True
+        if i == self._num_cols - 1 and j == self._num_rows - 1:
+            return True
+        if j > 0 and not cell.has_top_wall and not self._cells[i][j - 1].visited:
+            cell.draw_move(self._cells[i][j - 1], colorful=colorful)
+            if self._solve_r(i, j - 1, colorful):
+                return True
+            else:
+                cell.draw_move(self._cells[i][j - 1], True)
+        if i < self._num_cols - 1 and not cell.has_right_wall and not self._cells[i + 1][j].visited:
+            cell.draw_move(self._cells[i + 1][j], colorful=colorful)
+            if self._solve_r(i + 1, j, colorful):
+                return True
+            else:
+                cell.draw_move(self._cells[i + 1][j], True)
+        if j < self._num_rows - 1 and not cell.has_bottom_wall and not self._cells[i][j + 1].visited:
+            cell.draw_move(self._cells[i][j + 1], colorful=colorful)
+            if self._solve_r(i, j + 1, colorful):
+                return True
+            else:
+                cell.draw_move(self._cells[i][j + 1], True)
+        if i > 0 and not cell.has_left_wall and not self._cells[i - 1][j].visited:
+            cell.draw_move(self._cells[i - 1][j], colorful=colorful)
+            if self._solve_r(i - 1, j, colorful):
+                return True
+            else:
+                cell.draw_move(self._cells[i - 1][j], True)
+        return False
