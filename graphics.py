@@ -1,3 +1,4 @@
+import random
 import time
 from tkinter import Tk, BOTH, Canvas
 
@@ -40,7 +41,7 @@ class Line():
         canvas.create_line(self.point_one.x, self.point_one.y, self.point_two.x, self.point_two.y, fill=fill_color, width=2)
 
 class Cell():
-    def __init__(self, x1, y1, x2, y2, win=None):
+    def __init__(self, x1, y1, x2, y2, win, visited=False):
         self._left_wall = Line(Point(x1, y1), Point(x1, y2))
         self._top_wall = Line(Point(x1, y1), Point(x2, y1))
         self._right_wall = Line(Point(x2, y1), Point(x2, y2))
@@ -50,10 +51,9 @@ class Cell():
         self.has_top_wall = True
         self.has_bottom_wall = True
         self._win = win
+        self.visited = visited
 
     def draw(self):
-        if self._win is None:
-            return
         sides = [
             (self._left_wall, self.has_left_wall),
             (self._top_wall, self.has_top_wall),
@@ -76,7 +76,7 @@ class Cell():
             self._win.draw_line(line, "red")
 
 class Maze():
-    def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win=None):
+    def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win):
         self._x1 = x1
         self._y1 = y1
         self._num_rows = num_rows
@@ -87,6 +87,7 @@ class Maze():
         self._cells = []
         self._create_cells()
         self._break_entrance_and_exit()
+        self._break_walls_r(0, 0)
 
     def _create_cells(self):
         for i in range(self._num_cols):
@@ -96,22 +97,21 @@ class Maze():
             self._cells.append(row_builder)
 
     def _create_cell(self, i, j):
-        if self._win is None:
-            return
         x1 = self._x1 + i * self._cell_size_x
         y1 = self._y1 + j * self._cell_size_y
         x2 = x1 + self._cell_size_x
         y2 = y1 + self._cell_size_y
         cell = Cell(x1, y1, x2, y2, self._win)
+        self._draw_cell(cell)
+        return cell
+    
+    def _draw_cell(self, cell):
         cell.draw()
         self._animate()
-        return cell
 
     def _animate(self):
-        if self._win is None:
-            return
         self._win.redraw()
-        time.sleep(0.02)
+        time.sleep(0.005)
 
     def _break_entrance_and_exit(self):
         entrance = self._cells[0][0]
@@ -120,3 +120,41 @@ class Maze():
         entrance.draw()
         exit.has_bottom_wall = False
         exit.draw()
+
+    def _break_walls_r(self, i, j):
+        cell = self._cells[i][j]
+        cell.visited = True
+        while True:
+            to_visit = []
+            if j > 0 and not self._cells[i][j - 1].visited:
+                to_visit.append((i, j - 1, "up"))
+            if i < self._num_cols - 1 and not self._cells[i + 1][j].visited:
+                to_visit.append((i + 1, j, "right"))
+            if j < self._num_rows - 1 and not self._cells[i][j + 1].visited:
+                to_visit.append((i, j + 1, "down"))
+            if i > 0 and not self._cells[i - 1][j].visited:
+                to_visit.append((i - 1, j, "left"))
+
+            if not to_visit:
+                self._draw_cell(cell)
+                return
+            
+            rand_direction = random.randrange(len(to_visit))
+            new_i, new_j, direction = to_visit[rand_direction]
+            # print(to_visit[rand_direction])
+            match direction:
+                case "up":
+                    cell.has_top_wall = False
+                    self._cells[i][j - 1].has_bottom_wall = False
+                case "right":
+                    cell.has_right_wall = False
+                    self._cells[i + 1][j].has_left_wall = False
+                case "down":
+                    cell.has_bottom_wall = False
+                    self._cells[i][j + 1].has_top_wall = False
+                case "left":
+                    cell.has_left_wall = False
+                    self._cells[i - 1][j].has_right_wall = False
+            
+            self._break_walls_r(new_i, new_j)
+                
